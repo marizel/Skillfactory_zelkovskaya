@@ -1,0 +1,34 @@
+SELECT f.flight_id,
+       f.arrival_airport,
+       f.scheduled_departure,
+       (f.scheduled_arrival - f.scheduled_departure) AS flight_duration,
+       f.status,
+       sum(tf.amount) flight_revenue,
+       count(tf.ticket_no) amount_of_tickets,
+       count(s.seat_no) amount_of_seats,
+       count(b.seat_no) sold_seats,
+       a.range,
+       (sum(tf.amount) / count(tf.ticket_no)) revenue_per_ticket,
+       (count(b.seat_no)/count(s.seat_no)) fill_rate,
+       (sum(tf.amount)/(date_part('hour', f.scheduled_arrival - f.scheduled_departure) * 60 + date_part('minute', f.scheduled_arrival - f.scheduled_departure))) revenue_per_minute,
+       (sum(tf.amount))/a.range aircraft_type_utilisation
+FROM dst_project.flights f
+LEFT JOIN dst_project.aircrafts a ON f.aircraft_code = a.aircraft_code
+LEFT JOIN dst_project.seats s ON f.aircraft_code = s.aircraft_code
+LEFT JOIN dst_project.boarding_passes b ON f.flight_id = b.flight_id
+LEFT JOIN dst_project.ticket_flights tf ON f.flight_id = tf.flight_id
+WHERE f.departure_airport = 'AAQ'
+  AND f.arrival_airport !='NOZ' --т.к. по направлению Новокузнецк почему-то нет совсем данных по выручке, то ли рейсы не состоялись, то ли нет данных в этом датасете
+
+  AND (date_trunc('month', f.scheduled_departure) in ('2017-01-01',
+                                                      '2017-02-01',
+                                                      '2016-12-01'))-- за декабрь 2017 данных нет, поэтому целесообразнее смотреть декабрь 2016
+
+  AND status not in ('Cancelled') /* в инструкции предлаегается добавить условие "AND status not in ('Cancelled')", но я с ним не согласна, т.к. количество отмененных рейсов тоже о чем-то говорит
+ - хоть у нас и нет причин отмены, но одна из них наверняка будет не проданные билеты или не заполненные места */
+GROUP BY f.flight_id,
+         a.range
+ORDER BY 6 DESC,
+         10 DESC,
+         11 DESC,
+         13
